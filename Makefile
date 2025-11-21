@@ -54,7 +54,7 @@ run-benchmarks: $(BENCH_TESTS)
 	@echo "=== STARTING BENCHMARK: CUDA vs PYTORCH REFERENCE ===="
 	@echo "========================================================"
 
-	@echo "\n--- RUNNING CUSTOM CUDA BENCHMARK (Naïf) ---"
+	@echo "\n--- RUNNING CUSTOM CUDA BENCHMARK ---"
 	@for t in $(BENCH_TESTS); do \
 		./$$t || { echo "CUDA Benchmark failed: $$t"; exit 1; }; \
 	done
@@ -70,4 +70,4 @@ run-benchmarks: $(BENCH_TESTS)
 
 clean:
 	rm -f $(LIB_OBJS)
-	rm -rf tests/bin tests/pytorch_benchmark
+	rm -rf tests/bin 

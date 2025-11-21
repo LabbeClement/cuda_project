@@ -113,7 +113,7 @@ int benchmark_matrix_mult()
     //  Calculer le temps écoulé
     checkCudaError(cudaEventElapsedTime(&milliseconds, start, stop), "Elapsed Time");
     
-    printf("[Source: CUDA Naïf] [Op: MatMult] [Time: %.4f ms]\n", milliseconds);
+    printf("[Source: CUDA] [Op: MatMult] [Time: %.4f ms]\n", milliseconds);
 
     //  Nettoyage
     cudaFree(GPU_a); cudaFree(GPU_b); cudaFree(GPU_c);
