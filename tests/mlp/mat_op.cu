@@ -1,6 +1,8 @@
 #include <stdio.h>
-#include "../../src/mlp.cu"
+#include "../../src/mlp.h"
 
+const int N = 5; 
+const int M = 3;
 
 int test_matrix_add() {
     float a[N][M] = {
@@ -118,8 +120,59 @@ int test_matrix_mult() {
     return 0;
 }
 
+
+const int N_BENCH = 4096;
+const int M_BENCH = 4096;
+const int K_BENCH = 4096;
+
+int test_matrix_add_benchmark()
+{
+    printf("\n--- BENCHMARK CUDA : MatAdd (%d x %d) ---\n", N_BENCH, M_BENCH);
+
+    // 1. Déclarer les chronomètres GPU
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    // 2. Préparation (Allocation GPU)
+    float *GPU_a, *GPU_b, *GPU_c;
+    cudaMalloc((void**)&GPU_a, (size_t)N_BENCH * M_BENCH * sizeof(float));
+    cudaMalloc((void**)&GPU_b, (size_t)N_BENCH * M_BENCH * sizeof(float));
+    cudaMalloc((void**)&GPU_c, (size_t)N_BENCH * M_BENCH * sizeof(float));
+
+    // 3. Configuration du Kernel
+    dim3 threadsPerBlock(16, 16); 
+    dim3 numBlocks((M_BENCH + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                   (N_BENCH + threadsPerBlock.y - 1) / threadsPerBlock.y);
+
+    // 4. Warm-up (Chauffage GPU)
+    MatAdd<<<numBlocks, threadsPerBlock>>>(GPU_a, GPU_b, GPU_c, N_BENCH, M_BENCH);
+
+    // 5. Mesure
+    cudaEventRecord(start); // <-- DÉPART CHRONO GPU
+
+    // Exécution de l'opération
+    MatAdd<<<numBlocks, threadsPerBlock>>>(GPU_a, GPU_b, GPU_c, N_BENCH, M_BENCH);
+
+    cudaEventRecord(stop);  // <-- FIN CHRONO GPU
+    cudaEventSynchronize(stop); // Attend que le GPU ait vraiment fini
+
+    // 6. Calculer le temps écoulé
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    
+    printf("Temps CUDA (MatAdd naïf): %.4f ms\n", milliseconds);
+
+    // 7. Nettoyage
+    cudaFree(GPU_a); cudaFree(GPU_b); cudaFree(GPU_c);
+    cudaEventDestroy(start); cudaEventDestroy(stop);
+
+    return 0;
+}
+
 int main() {
     test_matrix_add();
     test_matrix_mult();
+    test_matrix_add_benchmark();
     return 0;
 }

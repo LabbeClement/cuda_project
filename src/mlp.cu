@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include "mlp.h"
+
 const int N = 5;
 const int M = 3;
 
@@ -105,13 +107,13 @@ void FeedForward(float *input, float *weights, float *bias,
 // ============== MLP FORWARD PASS ==============
 
 
-// Structure pour représenter un MLP
-typedef struct {
-    int num_layers;           // Nombre de couches (sans compter l'input)
-    int *layer_sizes;         // Tailles de chaque couche [input_size, hidden1, hidden2, ..., output_size]
-    float **weights;          // Pointeurs vers les poids de chaque couche
-    float **biases;           // Pointeurs vers les biais de chaque couche
-} MLP;
+// // Structure pour représenter un MLP
+// typedef struct {
+//     int num_layers;           // Nombre de couches (sans compter l'input)
+//     int *layer_sizes;         // Tailles de chaque couche [input_size, hidden1, hidden2, ..., output_size]
+//     float **weights;          // Pointeurs vers les poids de chaque couche
+//     float **biases;           // Pointeurs vers les biais de chaque couche
+// } MLP;
 
 // Forward pass MLP complet
 void MLP_Forward(MLP *mlp, float *input, float *output, int batch_size) {

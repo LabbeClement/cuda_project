@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "../../src/mlp.cu"
+#include "../../src/mlp.h"
 
 int test_mlp_forward() {
     printf("\n╔════════════════════════════════════════╗\n");

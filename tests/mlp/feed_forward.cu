@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "../../src/mlp.cu"
+#include "../../src/mlp.h"
 
 int test_feedforward() {
     const int BATCH_SIZE = 2;
