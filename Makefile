@@ -1,5 +1,5 @@
 CC := nvcc
-CFLAGS := -arch=sm_89 -O3 -Xcompiler -Wall
+CFLAGS := -arch=sm_89 -O3 -Xcompiler -Wall -lcublas
 
 # 1. LIBRAIRIE PRINCIPALE
 LIB_SRCS := src/mlp.cu
