@@ -124,8 +124,17 @@ int benchmark_matrix_mult()
 
 
 int main() {
+    printf("\n");
+    printf("════════════════════════════════════════════════════════\n");
+    printf("       BENCHMARK OPÉRATIONS MATRICIELLES ISOLÉES        \n");
+    printf("════════════════════════════════════════════════════════\n");
+    printf("Taille des matrices: %d × %d\n", N_BENCH, M_BENCH);
+    printf("────────────────────────────────────────────────────────\n\n");
+    
     benchmark_matrix_add();
     benchmark_matrix_mult();
-
+    
+    printf("\n════════════════════════════════════════════════════════\n\n");
+    
     return 0;
 }

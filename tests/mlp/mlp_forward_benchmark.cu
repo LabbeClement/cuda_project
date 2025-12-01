@@ -95,5 +95,14 @@ int benchmark_mlp_forward()
 // ============== MAIN ==============
 
 int main() {
-    return benchmark_mlp_forward();
+    printf("\n");
+    printf("════════════════════════════════════════════════════════\n");
+    printf("         BENCHMARK MLP FORWARD (VERSION NAÏVE)          \n");
+    printf("════════════════════════════════════════════════════════\n\n");
+    
+    int result = benchmark_mlp_forward();
+    
+    printf("\n════════════════════════════════════════════════════════\n\n");
+    
+    return result;
 }
