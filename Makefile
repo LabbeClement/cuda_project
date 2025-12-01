@@ -2,19 +2,24 @@ CC := nvcc
 CFLAGS := -arch=sm_89 -O3 -Xcompiler -Wall -lcublas
 
 # 1. LIBRAIRIE PRINCIPALE
-LIB_SRCS := src/mlp.cu
+LIB_SRCS := src/mlp.cu src/cnn.cu
 LIB_OBJS := $(LIB_SRCS:.cu=.o)
 
 # 2. FICHIERS DE TEST
-TEST_SRCS := $(shell find tests/mlp -name '*.cu')
+TEST_SRCS := $(shell find tests -name '*.cu')
 TEST_BINS := $(patsubst tests/%.cu,tests/bin/%,$(TEST_SRCS))
 
 # Séparer les tests fonctionnels des benchmarks
 BENCH_TESTS := $(filter %_benchmark, $(TEST_BINS))
 FUNCTIONAL_TESTS := $(filter-out %_benchmark, $(TEST_BINS))
 
-# Fichier de benchmark Python
-PYTHON_BENCH := tests/pytorch_benchmark/pytorch_benchmark.py
+# Séparer les benchmarks MLP et CNN
+BENCH_TESTS_MLP := $(filter tests/bin/mlp/%, $(BENCH_TESTS))
+BENCH_TESTS_CNN := $(filter tests/bin/cnn/%, $(BENCH_TESTS))
+
+# Fichiers de benchmark Python
+PYTHON_BENCH_MLP := tests/pytorch_benchmark/pytorch_benchmark.py
+PYTHON_BENCH_CNN := tests/pytorch_benchmark/cnn_benchmark.py
 
 .PHONY: all clean tests run-tests run-benchmarks setup-bench-dir
 
@@ -22,16 +27,13 @@ all: $(LIB_OBJS) tests
 
 # --- REGLES DE COMPILATION ---
 
-# Règle pour compiler les objets (.cu -> .o)
 %.o: %.cu
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Règle de linkage pour les exécutables de test
 tests/bin/%: tests/%.cu $(LIB_OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $< $(LIB_OBJS)
 
-# Construction de la cible 'tests' (compile tout)
 tests: $(TEST_BINS) setup-bench-dir
 
 setup-bench-dir:
@@ -40,7 +42,6 @@ setup-bench-dir:
 
 # --- EXECUTION ---
 
-# Lancement des tests fonctionnels
 run-tests: $(FUNCTIONAL_TESTS)
 	@echo "Running functional tests..."
 	@for t in $(FUNCTIONAL_TESTS); do \
@@ -48,22 +49,35 @@ run-tests: $(FUNCTIONAL_TESTS)
 		./$$t || { echo "Test failed: $$t"; exit 1; }; \
 	done
 
-# Lancement des benchmarks de performance
-run-benchmarks: $(BENCH_TESTS)
+run-benchmarks:
 	@echo "========================================================"
-	@echo "=== STARTING BENCHMARK: CUDA vs PYTORCH REFERENCE ===="
+	@echo "===        PART 1: MLP BENCHMARKS (CUDA vs PyTorch)  ==="
 	@echo "========================================================"
-	@echo "\n--- RUNNING CUSTOM CUDA BENCHMARK ---"
-	@for t in $(BENCH_TESTS); do \
+	
+	@echo "\n--- CUDA MLP BENCHMARKS ---"
+	@for t in $(BENCH_TESTS_MLP); do \
+		echo "\n>>> Executing $$t ..."; \
 		./$$t || { echo "CUDA Benchmark failed: $$t"; exit 1; }; \
 	done
-	@echo "\n--- RUNNING PYTORCH REFERENCE BENCHMARK ---"
-	@python3 $(PYTHON_BENCH)
-	@echo "========================================================"
-	@echo "=== BENCHMARK COMPLETE. COMPARE THE TIMES ABOVE. ======="
+
+	@echo "\n--- PYTORCH MLP REFERENCE ---"
+	@python3 $(PYTHON_BENCH_MLP)
+
+	@echo "\n\n========================================================"
+	@echo "===        PART 2: CNN BENCHMARKS (CUDA vs PyTorch)  ==="
 	@echo "========================================================"
 
-# --- NETTOYAGE ---
+	@echo "\n--- CUDA CNN BENCHMARKS ---"
+	@for t in $(BENCH_TESTS_CNN); do \
+		echo "\n>>> Executing $$t ..."; \
+		./$$t || { echo "CUDA Benchmark failed: $$t"; exit 1; }; \
+	done
+
+	@echo "\n--- PYTORCH CNN REFERENCE ---"
+	@python3 $(PYTHON_BENCH_CNN)
+
+	@echo "\n========================================================"
+	@echo "=== BENCHMARK COMPLETE ==="
 
 clean:
 	rm -f $(LIB_OBJS)
