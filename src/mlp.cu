@@ -139,9 +139,7 @@ void MLP_Forward(MLP *mlp, float *input, float *output, int batch_size) {
         // Appliquer ReLU sauf pour la dernière couche (souvent softmax ou linéaire)
         bool apply_relu = (layer < num_layers - 1);
         
-        printf("Layer %d: [%d → %d] %s\n", 
-               layer + 1, input_dim, output_dim, 
-               apply_relu ? "+ ReLU" : "");
+        //printf("Layer %d: [%d → %d] %s\n", layer + 1, input_dim, output_dim, apply_relu ? "+ ReLU" : "");
         
         FeedForward(activations[layer], 
                            mlp->weights[layer], 
