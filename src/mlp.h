@@ -27,4 +27,7 @@ MLP* create_MLP_on_GPU(int *layer_sizes_host, int num_layers);
 void free_MLP(MLP *mlp);
 void MLP_Forward(MLP *mlp, float *input, float *output, int batch_size);
 
+// Chargement d'un MLP depuis un fichier
+MLP* load_MLP_from_file(const char* filename);
+void save_MLP_to_file(MLP *mlp, const char* filename, int batch_size);
 #endif // MLP_H

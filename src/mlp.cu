@@ -194,3 +194,154 @@ void free_MLP(MLP *mlp) {
     free(mlp->layer_sizes);
     free(mlp);
 }
+
+// ============== CHARGEMENT/SAUVEGARDE MLP ==============
+
+// Charger un MLP depuis un fichier texte
+MLP* load_MLP_from_file(const char* filename) {
+    FILE *f = fopen(filename, "r");
+    if (!f) {
+        fprintf(stderr, "Erreur: impossible d'ouvrir le fichier '%s'\n", filename);
+        return NULL;
+    }
+    
+    printf("Chargement du MLP depuis '%s'\n", filename);
+    
+    // 1. Lire le nombre de couches
+    int num_layers;
+    if (fscanf(f, "%d", &num_layers) != 1) {
+        fprintf(stderr, "Erreur: lecture du nombre de couches\n");
+        fclose(f);
+        return NULL;
+    }
+    
+    // 2. Lire l'architecture (layer_sizes)
+    int *layer_sizes = (int*)malloc((num_layers + 1) * sizeof(int));
+    printf("   Architecture: [");
+    for (int i = 0; i <= num_layers; i++) {
+        if (fscanf(f, "%d", &layer_sizes[i]) != 1) {
+            fprintf(stderr, "Erreur: lecture de l'architecture\n");
+            free(layer_sizes);
+            fclose(f);
+            return NULL;
+        }
+        printf("%d", layer_sizes[i]);
+        if (i < num_layers) printf(" → ");
+    }
+    printf("]\n");
+    
+    // 3. Créer la structure MLP
+    MLP *mlp = create_MLP_on_GPU(layer_sizes, num_layers);
+    
+    // 4. Charger les poids et biais de chaque couche
+    for (int layer = 0; layer < num_layers; layer++) {
+        int input_dim = layer_sizes[layer];
+        int output_dim = layer_sizes[layer + 1];
+        
+        printf("   Layer %d: [%d × %d] weights + [%d] bias\n", 
+               layer + 1, input_dim, output_dim, output_dim);
+        
+        // Charger les weights [input_dim × output_dim]
+        float *h_weights = (float*)malloc(input_dim * output_dim * sizeof(float));
+        for (int i = 0; i < input_dim * output_dim; i++) {
+            if (fscanf(f, "%f", &h_weights[i]) != 1) {
+                fprintf(stderr, "Erreur: lecture des poids (layer %d)\n", layer);
+                free(h_weights);
+                free_MLP(mlp);
+                fclose(f);
+                return NULL;
+            }
+        }
+        
+        // Copier sur le GPU
+        cudaMalloc(&mlp->weights[layer], input_dim * output_dim * sizeof(float));
+        cudaMemcpy(mlp->weights[layer], h_weights, 
+                   input_dim * output_dim * sizeof(float), 
+                   cudaMemcpyHostToDevice);
+        free(h_weights);
+        
+        // Charger les bias [output_dim]
+        float *h_bias = (float*)malloc(output_dim * sizeof(float));
+        for (int i = 0; i < output_dim; i++) {
+            if (fscanf(f, "%f", &h_bias[i]) != 1) {
+                fprintf(stderr, "Erreur: lecture du biais (layer %d)\n", layer);
+                free(h_bias);
+                free_MLP(mlp);
+                fclose(f);
+                return NULL;
+            }
+        }
+        
+        // Copier sur le GPU
+        cudaMalloc(&mlp->biases[layer], output_dim * sizeof(float));
+        cudaMemcpy(mlp->biases[layer], h_bias, 
+                   output_dim * sizeof(float), 
+                   cudaMemcpyHostToDevice);
+        free(h_bias);
+    }
+    
+    fclose(f);
+    free(layer_sizes);
+    
+    printf("MLP chargé !\n\n");
+    return mlp;
+}
+
+// Sauvegarder un MLP dans un fichier texte
+void save_MLP_to_file(MLP *mlp, const char* filename, int batch_size) {
+    FILE *f = fopen(filename, "w");
+    if (!f) {
+        fprintf(stderr, "Erreur: impossible de créer le fichier '%s'\n", filename);
+        return;
+    }
+    
+    printf("Sauvegarde du MLP dans '%s'\n", filename);
+    
+    // 1. Écrire le nombre de couches
+    fprintf(f, "%d\n", mlp->num_layers);
+    
+    // 2. Écrire l'architecture
+    for (int i = 0; i <= mlp->num_layers; i++) {
+        fprintf(f, "%d ", mlp->layer_sizes[i]);
+    }
+    fprintf(f, "\n\n");
+    
+    // 3. Écrire les poids et biais de chaque couche
+    for (int layer = 0; layer < mlp->num_layers; layer++) {
+        int input_dim = mlp->layer_sizes[layer];
+        int output_dim = mlp->layer_sizes[layer + 1];
+        
+        fprintf(f, "# Layer %d weights [%d x %d]\n", layer, input_dim, output_dim);
+        
+        // Copier les weights depuis le GPU
+        float *h_weights = (float*)malloc(input_dim * output_dim * sizeof(float));
+        cudaMemcpy(h_weights, mlp->weights[layer], 
+                   input_dim * output_dim * sizeof(float), 
+                   cudaMemcpyDeviceToHost);
+        
+        for (int i = 0; i < input_dim; i++) {
+            for (int j = 0; j < output_dim; j++) {
+                fprintf(f, "%.6f ", h_weights[i * output_dim + j]);
+            }
+            fprintf(f, "\n");
+        }
+        free(h_weights);
+        
+        fprintf(f, "\n# Layer %d bias [%d]\n", layer, output_dim);
+        
+        // Copier les bias depuis le GPU
+        float *h_bias = (float*)malloc(output_dim * sizeof(float));
+        cudaMemcpy(h_bias, mlp->biases[layer], 
+                   output_dim * sizeof(float), 
+                   cudaMemcpyDeviceToHost);
+        
+        for (int i = 0; i < output_dim; i++) {
+            fprintf(f, "%.6f ", h_bias[i]);
+        }
+        fprintf(f, "\n\n");
+        free(h_bias);
+    }
+    
+    fclose(f);
+    printf("MLP sauvegardé !\n");
+}
