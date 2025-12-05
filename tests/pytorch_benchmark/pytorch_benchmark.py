@@ -10,11 +10,11 @@ K = 4096
 
 def run_pytorch_benchmark():
     if not torch.cuda.is_available():
-        print("❌ PyTorch ERROR: GPU non disponible. Vérifiez l'activation de l'environnement Conda et du driver.")
+        print(" PyTorch ERROR: GPU non disponible. Vérifiez l'activation de l'environnement Conda et du driver.")
         return
 
     device = torch.device("cuda")
-    # print(f"✅ PyTorch GPU: {torch.cuda.get_device_name(0)}")
+    # print(f"PyTorch GPU: {torch.cuda.get_device_name(0)}")
 
     # Création des tenseurs sur le GPU (équivalent de cudaMalloc et init)
     A = torch.randn(N, K, device=device)
@@ -61,7 +61,7 @@ NUM_LAYERS_MLP = len(LAYER_SIZES) - 1 # 3 couches cachées/output
 
 def run_pytorch_mlp_benchmark():
     if not torch.cuda.is_available():
-        print("❌ PyTorch ERROR: GPU non disponible.")
+        print(" PyTorch ERROR: GPU non disponible.")
         return
 
     device = torch.device("cuda")

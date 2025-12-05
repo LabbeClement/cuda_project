@@ -21,7 +21,7 @@ BENCH_TESTS_CNN := $(filter tests/bin/cnn/%, $(BENCH_TESTS))
 PYTHON_BENCH_MLP := tests/pytorch_benchmark/pytorch_benchmark.py
 PYTHON_BENCH_CNN := tests/pytorch_benchmark/cnn_benchmark.py
 
-.PHONY: all clean tests run-tests run-benchmarks setup-bench-dir
+.PHONY: all clean tests run-tests run-benchmarks setup-bench-dir graph
 
 all: $(LIB_OBJS) tests
 
@@ -79,6 +79,11 @@ run-benchmarks:
 	@echo "\n========================================================"
 	@echo "=== BENCHMARK COMPLETE ==="
 
+
+graph:
+	@python3 $(PYTHON_PLOT)
+
 clean:
 	rm -f $(LIB_OBJS)
 	rm -rf tests/bin
+	rm -rf plots
