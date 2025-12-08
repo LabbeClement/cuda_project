@@ -121,6 +121,41 @@ void MLP_Forward_Tiled_Wrapper(MLP *mlp, float *input, float *output, int batch_
     free(activations);
 }
 
+// Wrapper pour utiliser FeedForward_Fused_Tiled dans le MLP
+void MLP_Forward_Fused_Tiled_Wrapper(MLP *mlp, float *input, float *output, int batch_size) {
+    int num_layers = mlp->num_layers;
+    
+    float **activations = (float**)malloc((num_layers + 1) * sizeof(float*));
+    activations[0] = input;
+    
+    for (int i = 1; i <= num_layers; i++) {
+        int layer_output_size = mlp->layer_sizes[i];
+        cudaMalloc(&activations[i], batch_size * layer_output_size * sizeof(float));
+    }
+    
+    for (int layer = 0; layer < num_layers; layer++) {
+        int input_dim = mlp->layer_sizes[layer];
+        int output_dim = mlp->layer_sizes[layer + 1];
+        bool apply_relu = (layer < num_layers - 1);
+        
+        FeedForward_Fused_Tiled(activations[layer], 
+                                mlp->weights[layer], 
+                                mlp->biases[layer],
+                                activations[layer + 1],
+                                batch_size, input_dim, output_dim, apply_relu);
+    }
+    
+    int final_size = mlp->layer_sizes[num_layers];
+    cudaMemcpy(output, activations[num_layers], 
+               batch_size * final_size * sizeof(float),
+               cudaMemcpyDeviceToDevice);
+    
+    for (int i = 1; i < num_layers; i++) {
+        cudaFree(activations[i]);
+    }
+    free(activations);
+}
+
 int main() {
     printf("\n╔════════════════════════════════════════════════════════╗\n");
     printf("║   BENCHMARK OPTIMISATIONS MLP (4 VERSIONS)            ║\n");
@@ -169,6 +204,17 @@ int main() {
     printf("║ 4. cuBLAS (Bibliothèque NVIDIA Optimisée)             ║\n");
     printf("╚════════════════════════════════════════════════════════╝\n");
     benchmark_optimized("CUDA cuBLAS", MLP_Forward_Optimized_cuBLAS, mlp_opt, d_input, d_output);
+
+    // ========== VERSION 5 : SHARED MEMORY + TILING ==========
+    printf("\n╔════════════════════════════════════════════════════════╗\n");
+    printf("║ 5. Shared Memory + Tiling                             ║\n");
+    printf("╚════════════════════════════════════════════════════════╝\n");
+    MLP *mlp_fused_tiled = create_MLP_on_GPU(LAYER_SIZES, NUM_LAYERS);
+    initialize_weights(mlp_fused_tiled->weights, mlp_fused_tiled->biases, LAYER_SIZES, NUM_LAYERS);
+    benchmark_version("CUDA Fulted", MLP_Forward_Fused_Tiled_Wrapper, mlp_fused_tiled, d_input, d_output);
+    free_MLP(mlp_fused_tiled);
+        
+    
     
     free_MLP_Optimized(mlp_opt);
     free_MLP(mlp_base);

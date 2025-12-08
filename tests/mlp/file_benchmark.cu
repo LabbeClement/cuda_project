@@ -182,6 +182,13 @@ void run_benchmark_on_file(const char* filename, int batch_size) {
     cudaEventElapsedTime(&time_ms, start, stop);
     printf("%-25s | %.4f ms\n", "4. cuBLAS", time_ms/ITER);
 
+    // 5. Fused + Tiled
+    cudaEventRecord(start);
+    for(int i=0; i<ITER; i++) MLP_Forward_Optimized_Fused_Tiled(mlp_opt, d_input, d_output);
+    cudaEventRecord(stop); cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&time_ms, start, stop);
+    printf("%-25s | %.4f ms\n", "5. Fulted", time_ms/ITER);
+
     // Cleanup
     cudaFree(d_input);
     cudaFree(d_output);

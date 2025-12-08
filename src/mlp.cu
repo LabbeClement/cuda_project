@@ -534,7 +534,80 @@ void FeedForward_Tiled(float *input, float *weights, float *bias,
     cudaFree(temp);
 }
 
-// ============== OPTIMISATION 4 : MLP OPTIMISÉ ==============
+// ============== OPTIMISATION 4 : KERNEL FUSED & TILED ==============
+
+__global__ void FeedForward_Fused_Tiled_Kernel(float *input, float *weights, float *bias,
+                                               float *output, int batch_size, int input_dim,
+                                               int output_dim, bool apply_relu)
+{
+    __shared__ float As[TILE_SIZE][TILE_SIZE];
+    __shared__ float Bs[TILE_SIZE][TILE_SIZE];
+    
+    int row = blockIdx.y * TILE_SIZE + threadIdx.y;  // Index de ligne (Batch)
+    int col = blockIdx.x * TILE_SIZE + threadIdx.x;  // Index de colonne (Neurone)
+    
+    float value = 0.0f; // Accumulateur pour le produit XW[row, col]
+    
+    // Boucle sur les tuiles (Tiling)
+    for (int t = 0; t < (input_dim + TILE_SIZE - 1) / TILE_SIZE; t++) {
+        
+        // Charger la tuile de A (Input) dans la shared memory (A est [Batch x Input])
+        int tile_A_idx = t * TILE_SIZE + threadIdx.x;
+        if (row < batch_size && tile_A_idx < input_dim)
+            As[threadIdx.y][threadIdx.x] = input[row * input_dim + tile_A_idx];
+        else
+            As[threadIdx.y][threadIdx.x] = 0.0f; // Padding avec zéro
+        
+        // Charger la tuile de B (Weights) dans la shared memory (B est [Input x Output])
+        int tile_B_idx = t * TILE_SIZE + threadIdx.y;
+        if (tile_B_idx < input_dim && col < output_dim)
+
+            Bs[threadIdx.y][threadIdx.x] = weights[tile_B_idx * output_dim + col]; 
+        else
+            Bs[threadIdx.y][threadIdx.x] = 0.0f; // Padding avec zéro
+        
+        __syncthreads(); // Attente que toutes les données soient chargées
+        
+        // Calculer le produit partiel 
+        for (int k = 0; k < TILE_SIZE; k++)
+            value += As[threadIdx.y][k] * Bs[k][threadIdx.x];
+        
+        __syncthreads(); 
+    }
+    
+    // FUSION ET ECRITURE FINALE
+    if (row < batch_size && col < output_dim) {
+        
+        // Ajout du Biais
+        value += bias[col]; // value = XW + bias
+        
+        // ctivation (ReLU)
+        if (apply_relu) {
+            value = fmaxf(0.0f, value);
+        }
+        
+        // Écriture du résultat
+        output[row * output_dim + col] = value;
+    }
+}
+
+
+void FeedForward_Fused_Tiled(float *input, float *weights, float *bias,
+                             float *output, int batch_size, int input_dim,
+                             int output_dim, bool apply_relu)
+{
+    // Configuration de la grille
+    dim3 threads(TILE_SIZE, TILE_SIZE);
+    dim3 blocks((output_dim + TILE_SIZE - 1) / TILE_SIZE,
+                (batch_size + TILE_SIZE - 1) / TILE_SIZE);
+    
+    // Lancement du kernel combiné
+    FeedForward_Fused_Tiled_Kernel<<<blocks, threads>>>(input, weights, bias, output,
+                                                         batch_size, input_dim, output_dim,
+                                                         apply_relu);
+}
+
+// ============== OPTIMISATION 5 : MLP OPTIMISÉ ==============
 
 MLP_Optimized* create_MLP_Optimized(int *layer_sizes_host, int num_layers, int batch_size)
 {
@@ -630,6 +703,33 @@ void MLP_Forward_Optimized_cuBLAS(MLP_Optimized *mlp, float *input, float *outpu
                           mlp->biases[layer],
                           mlp->activation_buffers[layer + 1],
                           batch_size, input_dim, output_dim, apply_relu);
+    }
+    
+    int final_size = mlp->layer_sizes[mlp->num_layers];
+    cudaMemcpy(output, mlp->activation_buffers[mlp->num_layers],
+               batch_size * final_size * sizeof(float),
+               cudaMemcpyDeviceToDevice);
+}
+
+void MLP_Forward_Optimized_Fused_Tiled(MLP_Optimized *mlp, float *input, float *output)
+{
+    int batch_size = mlp->batch_size;
+    
+    cudaMemcpy(mlp->activation_buffers[0], input,
+               batch_size * mlp->layer_sizes[0] * sizeof(float),
+               cudaMemcpyDeviceToDevice);
+    
+    // Forward pass avec kernel fusionné et tiling
+    for (int layer = 0; layer < mlp->num_layers; layer++) {
+        int input_dim = mlp->layer_sizes[layer];
+        int output_dim = mlp->layer_sizes[layer + 1];
+        bool apply_relu = (layer < mlp->num_layers - 1);
+        
+        FeedForward_Fused_Tiled(mlp->activation_buffers[layer],
+                                mlp->weights[layer],
+                                mlp->biases[layer],
+                                mlp->activation_buffers[layer + 1],
+                                batch_size, input_dim, output_dim, apply_relu);
     }
     
     int final_size = mlp->layer_sizes[mlp->num_layers];

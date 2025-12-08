@@ -32,12 +32,20 @@ void FeedForward_cuBLAS(cublasHandle_t handle, float *input, float *weights,
                         int input_dim, int output_dim, bool apply_relu);
 
 // OPTIMISATION 3: Shared Memory Tiled MatMult
-#define TILE_SIZE 16
+#define TILE_SIZE 48
 __global__ void MatMult_Tiled(float *A, float *B, float *C, int n, int m, int common);
 
 void FeedForward_Tiled(float *input, float *weights, float *bias,
                        float *output, int batch_size, int input_dim,
                        int output_dim, bool apply_relu);
+
+// OPTIMISATION 4: Kernel fusionné + Tiling + Shared Memory
+__global__ void FeedForward_Fused_Tiled_Kernel(float *input, float *weights, float *bias,
+                                               float *output, int batch_size, int input_dim,
+                                               int output_dim, bool apply_relu);
+void FeedForward_Fused_Tiled(float *input, float *weights, float *bias,
+                             float *output, int batch_size, int input_dim,
+                             int output_dim, bool apply_relu);
 
 // ============== MLP ==============
 typedef struct {
@@ -66,6 +74,7 @@ MLP_Optimized* create_MLP_Optimized(int *layer_sizes_host, int num_layers, int b
 void free_MLP_Optimized(MLP_Optimized *mlp);
 void MLP_Forward_Optimized(MLP_Optimized *mlp, float *input, float *output);
 void MLP_Forward_Optimized_cuBLAS(MLP_Optimized *mlp, float *input, float *output);
+void MLP_Forward_Optimized_Fused_Tiled(MLP_Optimized *mlp, float *input, float *output);
 
 // Chargement
 MLP* load_MLP_from_file(const char* filename);

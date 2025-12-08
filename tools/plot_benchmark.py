@@ -24,13 +24,15 @@ def parse_benchmark_log(filename):
     # --- 1. PARSING MLP LARGE SYNTHETIC (Batch 4096) ---
     mlp_matches = re.findall(r'\[Source: CUDA (.*?)\] .*? \[Time: ([\d\.]+) ms\]', content)
     if len(mlp_matches) >= 4:
-        for name, time in mlp_matches[:4]:
+        for name, time in mlp_matches[:5]:
             key = name.replace("Optimisé (Fused)", "Fused").replace("Bibliothèque NVIDIA Optimisée", "cuBLAS").strip()
             if "Modulaire" in key: key = "Naive"
-            if "Tiled" in key: key = "Tiled"
-            if "Fused" in key: key = "Fused"
-            if "cuBLAS" in key: key = "cuBLAS"
+            elif "Fulted" in key: key = "Fused-Tiled"
+            elif "Tiled" in key: key = "Tiled"
+            elif "Fused" in key: key = "Fused"
+            elif "cuBLAS" in key: key = "cuBLAS"
             data['mlp_large_synthetic'][key] = float(time)
+            
 
     # --- 2. PARSING MLP SMALL (Batch 4096) ---
     if "BENCHMARKING MODEL: tests/data/mlp_model.onnx" in content:
@@ -42,8 +44,9 @@ def parse_benchmark_log(filename):
                 for name, time in matches:
                     t = float(time)
                     if "Modular" in name: data['mlp_small_4096']['Naive'] = t
+                    elif "Fulted" in name: data['mlp_small_4096']['Fused-Tiled'] = t
                     elif "Tiled" in name: data['mlp_small_4096']['Tiled'] = t
-                    elif "Fused" in name: data['mlp_small_4096']['Fused'] = t
+                    elif "Fused" in name: data['mlp_small_4096']['Fused'] = t  
                     elif "cuBLAS" in name: data['mlp_small_4096']['cuBLAS'] = t
 
     # --- 3. PARSING MLP LARGE FILE (Batch 4096) ---
@@ -55,6 +58,7 @@ def parse_benchmark_log(filename):
             for name, time in matches:
                 t = float(time)
                 if "Modular" in name: data['mlp_large_file']['Naive'] = t
+                elif "Fulted" in name: data['mlp_large_file']['Fused-Tiled'] = t
                 elif "Tiled" in name: data['mlp_large_file']['Tiled'] = t
                 elif "Fused" in name: data['mlp_large_file']['Fused'] = t
                 elif "cuBLAS" in name: data['mlp_large_file']['cuBLAS'] = t
@@ -91,7 +95,7 @@ def plot_graph(ax, data_dict, title, ylabel, color_map):
     if not data_dict:
         return
     
-    order = ['Naive', 'Naive Conv2D', 'Tiled', 'Fused', 'Im2Col + cuBLAS', 'cuBLAS', 'PyTorch']
+    order = ['Naive', 'Naive Conv2D', 'Tiled', 'Fused', 'Fused-Tiled', 'Im2Col + cuBLAS', 'cuBLAS', 'PyTorch']
     
     items = []
     for k in order:
@@ -107,6 +111,7 @@ def plot_graph(ax, data_dict, title, ylabel, color_map):
     colors = []
     for label in labels:
         if 'Naive' in label: colors.append('#e74c3c') # Rouge
+        elif 'Fused-Tiled' in label: colors.append("#0F21BE") # Vert foncé (Gagnant throughput)
         elif 'Tiled' in label: colors.append('#e67e22') # Orange
         elif 'Fused' in label: colors.append('#2ecc71') # Vert (Gagnant latence)
         elif 'cuBLAS' in label and 'Im2Col' not in label: colors.append('#27ae60') # Vert foncé (Gagnant throughput)
