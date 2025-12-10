@@ -81,13 +81,24 @@ def parse_benchmark_log(filename):
             for name, time in cnn_mnist_matches:
                  data['cnn_mnist_4096'][name.strip()] = float(time)
 
-    # --- 6. PARSING PYTORCH ---
+    # --- 6. PARSING PYTORCH CNN ---
     pytorch_matches = re.findall(r'\[(.*?)\] PyTorch Avg Time: ([\d\.]+) ms', content)
+    print(f"Found PyTorch CNN results: {pytorch_matches}")
     for name, time in pytorch_matches:
         if "VGG" in name:
             data['cnn_vgg']['PyTorch'] = float(time)
         if "MNIST Small" in name:
             data['cnn_mnist_4096']['PyTorch'] = float(time)
+        if "PyTorch MLP" in name:
+            if "Synthetic" in name:
+                print (f"Adding PyTorch MLP Large Synthetic time: {time}")
+                data['mlp_large_synthetic']['PyTorch'] = float(time)
+            elif "Large" in name:
+                print (f"Adding PyTorch MLP Large time: {time}")
+                data['mlp_large_file']['PyTorch'] = float(time)
+            elif "Small" in name:
+                print (f"Adding PyTorch MLP Small time: {time}")
+                data['mlp_small_4096']['PyTorch'] = float(time)
 
     return data
 

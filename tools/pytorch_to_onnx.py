@@ -100,6 +100,7 @@ if __name__ == "__main__":
     model_small, layer_sizes_small = create_test_mlp()
     onnx_path_small = "tests/data/mlp_model.onnx"
     export_pytorch_to_onnx(model_small, (1, layer_sizes_small[0]), onnx_path_small)
+    torch.save(model_small.state_dict(), "tests/data/mlp_model.pth")
     
     # Tester avec PyTorch
     input_tensor = torch.tensor([[1.0, 2.0, 3.0, 4.0]])
@@ -112,6 +113,7 @@ if __name__ == "__main__":
     model_large, layer_sizes_large = create_large_mlp()
     onnx_path_large = "tests/data/mlp_model_large.onnx"
     export_pytorch_to_onnx(model_large, (1, layer_sizes_large[0]), onnx_path_large)
+    torch.save(model_large.state_dict(), "tests/data/mlp_model_large.pth")
     print()
     
     print("Tous les modèles ONNX ont été créés!")

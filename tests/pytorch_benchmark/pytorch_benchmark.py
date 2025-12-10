@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import time
 import sys
+import onnx
+import collections
 
 # --- CONFIGURATION (Mêmes tailles que le benchmark CUDA) ---
 N = 4096
@@ -100,8 +102,140 @@ def run_pytorch_mlp_benchmark():
     time_mlp = (end - start) * 1000 # Temps en millisecondes
     
     # Affichage Standardisé
-    print(f"[Source: PyTorch Ref] [Op: MLP_Forward ({NUM_LAYERS_MLP} L)] [Time: {time_mlp:.4f} ms]")
+    print(f"[PyTorch MLP Synthetic] PyTorch Avg Time: {time_mlp:.4f} ms")
+
+
+# --- ARCHITECTURES & TAILLES ---
+
+# Architecture SMALL (MLP de test)
+# [4 (input) → 3 (ReLU) → 2 (output)]
+LAYER_SIZES_SMALL = [4, 3, 2]
+BATCH_SIZE_SMALL = 256 # Taille raisonnable pour un petit test
+
+# Architecture LARGE (Benchmark)
+# [784 (input) → 256 (ReLU) → 128 (ReLU) → 10 (output)]
+LAYER_SIZES_LARGE = [784, 256, 128, 10]
+BATCH_SIZE_LARGE = 4096 # Grande taille pour le benchmark de débit
+
+# ----------------------------------------------------
+# 1. CLASSE GÉNÉRIQUE (Pour correspondre au nn.Sequential)
+# ----------------------------------------------------
+
+class SimpleMLP(nn.Module):
+    """
+    Crée un MLP dont les clés de poids correspondent au format simple 
+    (0.weight, 2.bias, etc.) créé par nn.Sequential.
+    """
+    def __init__(self, layer_sizes):
+        super(SimpleMLP, self).__init__()
+        layers = []
+        num_layers = len(layer_sizes) - 1
+
+        for i in range(num_layers):
+            input_dim = layer_sizes[i]
+            output_dim = layer_sizes[i+1]
+            
+            layers.append(nn.Linear(input_dim, output_dim))
+            
+            if i < num_layers - 1:
+                layers.append(nn.ReLU())
+                
+        # Le format Sequential génère les clés simples "0.weight", "2.bias", etc.
+        self.net = nn.Sequential(*layers) 
+
+    def forward(self, x):
+        return self.net(x)
+
+# ----------------------------------------------------
+# 2. FONCTION DE BENCHMARK ET CHARGEMENT (FIXÉE)
+# ----------------------------------------------------
+
+def run_pytorch_mlp_benchmark_from_pth(path, arch_name, layer_sizes, batch_size):
+    
+    # SETUP : Vérification GPU
+    if not torch.cuda.is_available():
+        print(f"❌ PyTorch ERROR: GPU non disponible.")
+        return
+
+    device = torch.device("cuda")
+    
+    # A. Créer une instance vide du modèle (nn.Module)
+    model = SimpleMLP(layer_sizes=layer_sizes)
+    
+    # B. Charger l'état (les poids) du fichier .pth
+    try:
+        # map_location=device charge directement les poids sur le GPU
+        state_dict = torch.load(path, map_location=device) 
+    except Exception as e:
+        print(f"❌ Erreur lors du chargement des poids de {path}: {e}")
+        return
+
+    # C. Adapter les clés pour le chargement
+    # Votre state_dict a été sauvegardé avec nn.Sequential, donc il contient des clés simples (0.weight, etc.)
+    # Mon SimpleMLP a un conteneur 'net', donc il attend 'net.0.weight'. 
+    # Solution la plus simple et sécurisée: Modifier le dictionnaire pour ajouter le préfixe 'net.'
+    
+    # Si le state_dict est un dictionnaire
+    if isinstance(state_dict, collections.OrderedDict):
+        
+        new_state_dict = collections.OrderedDict()
+        
+        for k, v in state_dict.items():
+            # Ajout du préfixe 'net.' aux clés qui n'en ont pas (comme '0.weight')
+            if not k.startswith('net.'):
+                name = 'net.' + k
+            else:
+                name = k
+            
+            new_state_dict[name] = v
+        
+        model.load_state_dict(new_state_dict)
+    else:
+        # Si le fichier .pth contenait le modèle complet
+        model = state_dict
+
+    # D. Finalisation du modèle
+    model.eval()
+    model = model.to(device) # Déplacer le modèle sur le GPU
+
+    
+    # E. Préparation de l'Input sur le GPU
+    input_tensor = torch.randn(batch_size, layer_sizes[0], device=device)
+
+    # 3. Mesure du temps
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event = torch.cuda.Event(enable_timing=True)
+    
+    # Warm-up (Exécution à vide)
+    with torch.no_grad():
+        _ = model(input_tensor)
+    torch.cuda.synchronize()
+
+    # Mesure
+    start_event.record() 
+    with torch.no_grad():
+        output = model(input_tensor)
+    end_event.record()
+    
+    torch.cuda.synchronize()
+    time_mlp = start_event.elapsed_time(end_event) # Temps en millisecondes
+    
+    # Affichage Standardisé
+    print(f"[PyTorch MLP {arch_name}] PyTorch Avg Time: {time_mlp:.4f} ms")
+
 
 if __name__ == "__main__":
     run_pytorch_benchmark()
+    run_pytorch_mlp_benchmark_from_pth(
+        path="tests/data/mlp_model.pth", 
+        arch_name="Small", 
+        layer_sizes=LAYER_SIZES_SMALL, 
+        batch_size=BATCH_SIZE_SMALL
+    )
+    run_pytorch_mlp_benchmark_from_pth(
+        path="tests/data/mlp_model_large.pth", 
+        arch_name="Large", 
+        layer_sizes=LAYER_SIZES_LARGE, 
+        batch_size=BATCH_SIZE_LARGE
+    )
     run_pytorch_mlp_benchmark()

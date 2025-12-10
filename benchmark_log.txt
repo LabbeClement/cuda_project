@@ -1,0 +1,251 @@
+========================================================
+===        PART 1: MLP BENCHMARKS (CUDA vs PyTorch)  ===
+========================================================
+
+--- CUDA MLP BENCHMARKS ---
+
+>>> Executing tests/bin/mlp/optimizations_benchmark ...
+
+╔════════════════════════════════════════════════════════╗
+║   BENCHMARK OPTIMISATIONS MLP (4 VERSIONS)            ║
+╚════════════════════════════════════════════════════════╝
+
+Architecture: [1024 → 512 → 256 → 10]
+Batch size: 4096
+
+╔════════════════════════════════════════════════════════╗
+║ 1. Version Modulaire (Baseline)                       ║
+╚════════════════════════════════════════════════════════╝
+[Source: CUDA Modulaire] [Op: MLP_Forward (3 L)] [Time: 26.7713 ms]
+
+╔════════════════════════════════════════════════════════╗
+║ 2. Shared Memory + Tiling                             ║
+╚════════════════════════════════════════════════════════╝
+[Source: CUDA Tiled] [Op: MLP_Forward (3 L)] [Time: 0.9779 ms]
+
+╔════════════════════════════════════════════════════════╗
+║ 3. Buffers Pré-alloués + Kernel Fusionné              ║
+╚════════════════════════════════════════════════════════╝
+[Source: CUDA Optimisé (Fused)] [Op: MLP_Forward (3 L)] [Time: 25.3583 ms]
+
+╔════════════════════════════════════════════════════════╗
+║ 4. cuBLAS (Bibliothèque NVIDIA Optimisée)             ║
+╚════════════════════════════════════════════════════════╝
+[Source: CUDA cuBLAS] [Op: MLP_Forward (3 L)] [Time: 3.9772 ms]
+
+╔════════════════════════════════════════════════════════╗
+║ 5. Shared Memory + Tiling                             ║
+╚════════════════════════════════════════════════════════╝
+[Source: CUDA Fulted] [Op: MLP_Forward (3 L)] [Time: 0.2535 ms]
+
+>>> Executing tests/bin/mlp/file_benchmark ...
+Lecture du fichier ONNX: tests/data/mlp_model.onnx
+   Nombre de tenseurs: 4
+   Couche trouvée: [4 × 3]
+   Couche trouvée: [3 × 2]
+   Nombre de couches: 2
+   Architecture: [4, 3, 2]
+Conversion terminée: 'tests/data/mlp_model.onnx.tmp.txt'
+   Architecture: [4, 3, 2]
+Lecture du fichier ONNX: tests/data/mlp_model_large.onnx
+   Nombre de tenseurs: 6
+   Couche trouvée: [784 × 256]
+   Couche trouvée: [256 × 128]
+   Couche trouvée: [128 × 10]
+   Nombre de couches: 3
+   Architecture: [784, 256, 128, 10]
+Conversion terminée: 'tests/data/mlp_model_large.onnx.tmp.txt'
+   Architecture: [784, 256, 128, 10]
+Lecture du fichier ONNX: tests/data/mlp_model.onnx
+   Nombre de tenseurs: 4
+   Couche trouvée: [4 × 3]
+   Couche trouvée: [3 × 2]
+   Nombre de couches: 2
+   Architecture: [4, 3, 2]
+Conversion terminée: 'tests/data/mlp_model.onnx.tmp.txt'
+   Architecture: [4, 3, 2]
+
+==========================================================
+BENCHMARKING MODEL: tests/data/mlp_model.onnx
+Batch Size: 4096
+Chargement du MLP depuis ONNX 'tests/data/mlp_model.onnx'...
+   Conversion ONNX → TXT en cours...
+
+
+Chargement du MLP depuis 'tests/data/mlp_model.onnx.tmp.txt'
+   Architecture: [4 → 3 → 2]
+   Layer 1: [4 × 3] weights + [3] bias
+   Layer 2: [3 × 2] weights + [2] bias
+MLP chargé !
+
+MLP chargé depuis ONNX avec succès!
+
+Architecture: [4 3 2 ]
+
+Running 20 iterations per version...
+Version                   | Avg Time (ms)  
+--------------------------|----------------
+1. Modular (Baseline)     | 0.0444 ms
+2. Shared Mem Tiled       | 0.0348 ms
+3. Fused + Pre-alloc      | 0.0133 ms
+4. cuBLAS                 | 0.0454 ms
+5. Fulted                 | 0.0050 ms
+
+==========================================================
+BENCHMARKING MODEL: tests/data/mlp_model_large.onnx
+Batch Size: 4096
+Chargement du MLP depuis ONNX 'tests/data/mlp_model_large.onnx'...
+   Conversion ONNX → TXT en cours...
+
+
+Chargement du MLP depuis 'tests/data/mlp_model_large.onnx.tmp.txt'
+   Architecture: [784 → 256 → 128 → 10]
+   Layer 1: [784 × 256] weights + [256] bias
+   Layer 2: [256 × 128] weights + [128] bias
+   Layer 3: [128 × 10] weights + [10] bias
+MLP chargé !
+
+MLP chargé depuis ONNX avec succès!
+
+Architecture: [784 256 128 10 ]
+
+Running 20 iterations per version...
+Version                   | Avg Time (ms)  
+--------------------------|----------------
+1. Modular (Baseline)     | 7.8425 ms
+2. Shared Mem Tiled       | 0.6721 ms
+3. Fused + Pre-alloc      | 5.9008 ms
+4. cuBLAS                 | 1.0553 ms
+5. Fulted                 | 0.1553 ms
+
+
+>>> TEST AVEC PETIT BATCH SIZE (64) <<<
+
+==========================================================
+BENCHMARKING MODEL: tests/data/mlp_model.onnx
+Batch Size: 64
+Chargement du MLP depuis ONNX 'tests/data/mlp_model.onnx'...
+   Conversion ONNX → TXT en cours...
+
+
+Chargement du MLP depuis 'tests/data/mlp_model.onnx.tmp.txt'
+   Architecture: [4 → 3 → 2]
+   Layer 1: [4 × 3] weights + [3] bias
+   Layer 2: [3 × 2] weights + [2] bias
+MLP chargé !
+
+MLP chargé depuis ONNX avec succès!
+
+Architecture: [4 3 2 ]
+
+Running 20 iterations per version...
+Version                   | Avg Time (ms)  
+--------------------------|----------------
+1. Modular (Baseline)     | 0.0347 ms
+2. Shared Mem Tiled       | 0.0295 ms
+3. Fused + Pre-alloc      | 0.0089 ms
+4. cuBLAS                 | 0.0174 ms
+5. Fulted                 | 0.0048 ms
+
+>>> Executing tests/bin/mlp/mat_op_benchmark ...
+
+════════════════════════════════════════════════════════
+       BENCHMARK OPÉRATIONS MATRICIELLES ISOLÉES        
+════════════════════════════════════════════════════════
+Taille des matrices: 4096 × 4096
+────────────────────────────────────────────────────────
+
+[Source: CUDA Naïf] [Op: MatAdd] [Time: 1.1552 ms]
+[Source: CUDA] [Op: MatMult] [Time: 476.1126 ms]
+
+════════════════════════════════════════════════════════
+
+
+>>> Executing tests/bin/mlp/mlp_forward_benchmark ...
+
+════════════════════════════════════════════════════════
+         BENCHMARK MLP FORWARD (VERSION NAÏVE)          
+════════════════════════════════════════════════════════
+
+Architecture: [1024 → 512 → 256 → 10]
+Batch size: 4096
+[Source: CUDA Naïf] [Op: MLP_Forward (3 L)] [Time: 18.4750 ms]
+
+════════════════════════════════════════════════════════
+
+
+--- PYTORCH MLP REFERENCE ---
+[Source: PyTorch] [Op: MatAdd] [Time: 1.0040 ms]
+[Source: PyTorch] [Op: MatMult] [Time: 75.3515 ms]
+[PyTorch MLP Small] PyTorch Avg Time: 0.1353 ms
+[PyTorch MLP Large] PyTorch Avg Time: 1.1170 ms
+[PyTorch MLP Synthetic] PyTorch Avg Time: 3.0384 ms
+
+
+========================================================
+===        PART 2: CNN BENCHMARKS (CUDA vs PyTorch)  ===
+========================================================
+
+--- CUDA CNN BENCHMARKS ---
+
+>>> Executing tests/bin/cnn/im2col_benchmark ...
+
+>>> Benchmarking VGG-Like Medium (Batch: 64) <<<
+--------------------------------------------------
+| Version              | Avg Time (ms) |
+--------------------------------------------------
+| Naive Conv2D         |    22.9559 ms |
+| Im2Col + cuBLAS      |    10.6247 ms |
+--------------------------------------------------
+Speedup: 2.16x
+
+
+>>> Executing tests/bin/cnn/cnn_benchmark ...
+
+╔══════════════════════════════════════════════╗
+║          BENCHMARK CNN PERFORMANCE           ║
+╚══════════════════════════════════════════════╝
+
+Benchmarking MNIST Small (Naive CUDA) (Batch: 64)...
+   [Result] Avg Time: 0.1224 ms
+
+Benchmarking VGG-Like Medium (Naive CUDA) (Batch: 64)...
+   [Result] Avg Time: 22.8122 ms
+
+
+>>> Executing tests/bin/cnn/file_benchmark ...
+
+╔══════════════════════════════════════════════╗
+║    BENCHMARK CNN SUR FICHIERS REELS          ║
+╚══════════════════════════════════════════════╝
+
+>>> Chargement: MNIST Small (tests/data/cnn_mnist.txt) <<<
+    Benchmarking (Batch: 4096)...
+    --------------------------------------------------
+    | Version              | Avg Time (ms) |
+    --------------------------------------------------
+    | Naive Conv2D         |     5.6353 ms |
+    | Im2Col + cuBLAS      |    42.2758 ms |
+    --------------------------------------------------
+    Speedup: 0.13x
+
+>>> Chargement: VGG-Like (tests/data/cnn_vgg.txt) <<<
+    Benchmarking (Batch: 64)...
+    --------------------------------------------------
+    | Version              | Avg Time (ms) |
+    --------------------------------------------------
+    | Naive Conv2D         |    23.3750 ms |
+    | Im2Col + cuBLAS      |    10.5388 ms |
+    --------------------------------------------------
+    Speedup: 2.22x
+
+--- PYTORCH CNN REFERENCE ---
+
+--- PyTorch Reference Benchmark ---
+[MNIST Small] PyTorch Avg Time: 0.2211 ms
+[VGG-Like Medium] PyTorch Avg Time: 4.0703 ms
+-----------------------------------
+
+
+========================================================
+=== BENCHMARK COMPLETE ===
